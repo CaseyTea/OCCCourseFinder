@@ -307,15 +307,19 @@ class DBHelper extends SQLiteOpenHelper {
         return offering;
     }
 
-    public void addOffering(Offering offering)
-    {
+    public void addOffering(int crn, int semesterCode, long courseId, long instructorId) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
 
-        values.put(FIELD_CRN, offering.getCRN());
-        values.put(FIELD_SEMESTER_CODE, offering.getSemesterCode());
-        values.put(FIELD_COURSE_ID, offering.getCourse().getId());
-        values.put(FIELD_INSTRUCTOR_ID, offering.getInstructor().getId());
+        values.put(FIELD_CRN, crn);
+        values.put(FIELD_SEMESTER_CODE, semesterCode);
+        values.put(FIELD_COURSE_ID, courseId);
+        values.put(FIELD_INSTRUCTOR_ID, instructorId);
+
+        db.insert(OFFERINGS_TABLE, null, values);
+
+        // CLOSE THE DATABASE CONNECTION
+        db.close();
     }
 
     public List<Offering> getAllOfferings()
@@ -383,19 +387,35 @@ class DBHelper extends SQLiteOpenHelper {
     //********** IMPORT FROM CSV OPERATIONS:  Courses, Instructors and Offerings
     //TODO:  Write the code for the import OfferingsFromCSV method.
 
-    public boolean importOfferingsFromCSV(String csvFileName)
-    {
-        AssetManager manager = mContext.getAssets();
-        InputStream inStream;
+    public boolean importOfferingsFromCSV(String csvFileName) {
+        AssetManager am = mContext.getAssets();
+        InputStream inStream = null;
         try {
-            inStream = manager.open(csvFileName);
-        }catch (IOException e){
+            inStream = am.open(csvFileName);
+        } catch (IOException e) {
             e.printStackTrace();
-            return false;
         }
 
         BufferedReader buffer = new BufferedReader(new InputStreamReader(inStream));
-        
+        String line;
+        try {
+            while ((line = buffer.readLine()) != null) {
+                String[] fields = line.split(",");
+                if (fields.length != 4) {
+                    Log.d("OCC Course Finder", "Skipping Bad CSV Row: " + Arrays.toString(fields));
+                    continue;
+                }
+                int crn = Integer.parseInt(fields[0].trim());
+                int semesterCode = Integer.parseInt(fields[1].trim());
+                long courseId = Long.parseLong(fields[2].trim());
+                long instructorId = Long.parseLong(fields[3].trim());
+                addOffering(crn, semesterCode, courseId, instructorId);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
+        return true;
     }
 
     public boolean importCoursesFromCSV(String csvFileName) {
